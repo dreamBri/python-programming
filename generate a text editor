@@ -1,0 +1,268 @@
+# 导入相关的库模块
+import tkinter as tk
+from tkinter import filedialog
+from tkinter import messagebox
+import os
+
+
+# 关闭窗口时提示
+def close_win():
+    # 提示信息
+    if messagebox.askokcancel('退出提示', '确定退出吗?'):
+        # 关闭窗口
+        win.destroy()
+
+
+# 设置行号,加入参数event=None，可以使该函数与事件绑定
+# 因为事件调用函数默认传递给函数一个参数event
+def set_linenumber(event=None):
+    # 取得Text控件simtext的最后索引值，通过split函数把行和列分出来
+    row, col = simtext.index(tk.END).split('.')
+    # 形成行号
+    line = '\n'.join([str(i) for i in range(1, int(row))])
+    # Text控件text_line的状态设置为tk.NORMA状态，这样可以写入文本
+    text_line.config(state=tk.NORMAL)
+    # 删除text_line中的文本
+    text_line.delete('1.0', tk.END)
+    # 将行号从第1行起写入行号
+    text_line.insert('1.0', line)
+    # Text控件text_line的状态设置为tk.DISABLED状态，这样可以不能写入文本
+    text_line.config(state=tk.DISABLED)
+
+
+# 建立一个空白编辑界面
+def create_new(event=None):
+    # 设置窗口标题
+    win.title('简单的编辑器--新文件(未命名)')
+    ##删除simtext中的文本
+    simtext.delete('1.0', tk.END)
+    # 调用函数，重新设置行号
+    set_linenumber(event=None)
+
+
+# 把文件的文本读入到simtext控件中
+def open_file(event=None):
+    global filename
+    # 通过文件选择窗口得到文件名
+    filename = filedialog.askopenfilename(defaultextension='.txt')
+    if filename == '':
+        filename = None
+    else:
+        # 用文件名设置窗口标题
+        win.title('简单的编辑器--' + os.path.basename(filename))
+        # 清空simtext中的文本
+        simtext.delete(1.0, tk.END)
+        # 把文件中的文本读入到控件simtext中
+        with open(filename, 'r') as f:
+            f = open(filename, 'r')
+            simtext.insert(1.0, f.read())
+            # 调用函数，重新设置行号
+            set_linenumber(event=None)
+
+
+# 把控件simtext的文本保存到文件中
+def save_file(event=None):
+    global filename
+    try:
+        with open(filename, 'w') as f:
+            # 取得simtext中的文本
+            msg = simtext.get(1.0, tk.END)
+            f.write(msg)
+    except:
+        saveas()
+
+
+# 保存未命名的文件
+def saveas(event=None):
+    # 通过文件选择窗口得到文件名
+    fname = filedialog.asksaveasfilename(initialfile='未命名.txt', defaultextension='.txt')
+    global filename
+    filename = fname
+    with open(fname, 'w') as f:
+        msg = simtext.get(1.0, tk.END)
+        f.write(msg)
+    # 用文件名设置窗口标题
+    win.title('简单的编辑器--' + os.path.basename(fname))
+
+
+# 以下函数调用事件绑定通用功能,也就是调用事件激活时调用的函数
+def copy():
+    # 绑定通用事件，这里执行系统通用的"拷贝"功能
+    simtext.event_generate('<<Copy>>')
+
+
+def cut():
+    # 绑定通用事件，这里执行系统通用的"剪切"功能
+    simtext.event_generate('<<Cut>>')
+
+
+def paste():
+    # 绑定通用事件，这里执行系统通用的"粘贴"功能
+    simtext.event_generate('<<Paste>>')
+
+
+def redo():
+    # 绑定通用事件，这里执行系统通用的"重做"(redo)功能
+    simtext.event_generate('<<Redo>>')
+
+
+def undo():
+    # 绑定通用事件，这里执行系统通用的"撤消"功能
+    simtext.event_generate('<<Undo>>')
+
+
+def selectAll():
+    # 绑定通用事件，这里执行系统通用的"全选"功能
+    simtext.event_generate('<<SelectAll>>')
+
+
+# 生成搜索窗口，并实现搜索功能
+def search(event=None):
+    def do_search(ignore_case):
+        # 获取查找的内容
+        key = e_search.get()
+        # 清除上次查找时设置的标签
+        simtext.tag_remove('tag_search', '1.0', tk.END)
+        # 设置一个起始索引
+        start_pos = 1.0
+        vcount = 0
+        while True:
+            # 取得匹配到的字符的位置索引，key是要查找的关键字，start_pos设置开始查询的索引位置，
+            # nocase设置查询时，是否忽略大小写,stopindex设置查询到那里结束
+            start_pos = simtext.search(key, start_pos, nocase=ignore_case, stopindex=tk.END)
+            # 如果匹配到了就继续往下，没有匹配到就退出while循环
+            if not start_pos:
+                break
+            # print(start_pos,len(key))
+            # 形成计算公式，计算出当前索引加上搜索关键字的长度得到新索引位置
+            end_pos = '{}+{} chars'.format(start_pos, len(key))
+            # 把每个查询到与关键字相匹配的内容打上标签
+            simtext.tag_add('tag_search', start_pos, end_pos)
+            # 查询到的匹配内容个数
+            vcount += 1
+            # 把查询起始位置设到当前打完标签的内容之后，开始继续查询
+            start_pos = end_pos
+        # 设置标签的字体和背景颜色
+        simtext.tag_config('tag_search', background='green', foreground='red')
+        # 弹出提示信息
+        messagebox.showinfo('查找', '共查到%d个"%s"' % (vcount, key))
+        # 把焦点放到查询窗口win_search上，可以查询新的关键字
+        win_search.focus_set()
+        # simtext.focus_set()
+
+    # 在窗口win前面新建一个窗口win_search
+    win_search = tk.Toplevel(win)
+    # 设置窗口标题
+    win_search.title('搜索对话框')
+    # 设置窗口的大小和位置
+    win_search.geometry('460x60+280+200')
+    # 设置窗口不可变
+    win_search.resizable(False, False)
+    # 放置一个Label控件
+    label_search = tk.Label(win_search, text='请录入要查找的内容：')
+    # 设置Label控件的位置
+    label_search.grid(row=0, column=0, sticky=tk.E)
+    # 放置一个输入框Entry,用来录入要查询的关键字
+    e_search = tk.Entry(win_search, width=30)
+    # 设置输入框的位置
+    e_search.grid(row=0, column=1, padx=2, pady=2, sticky=tk.EW)
+    # 生成一个整型变量
+    ignore_case = tk.IntVar()
+    # 生成一个按钮，点击按钮，调用do_search()函数，并传递参数。
+    but_search = tk.Button(win_search, text='查找', command=lambda: do_search(ignore_case.get()))
+    but_search.grid(row=0, column=2, padx=2, pady=2)
+    # 生成一个选择按钮，其值与变量ignore_case绑定(variable=ignore_case),
+    # onvalue设置选中时的值，offvalue设置未选中时的值
+    ck_case = tk.Checkbutton(win_search, text='忽略大小写', variable=ignore_case, onvalue=1, offvalue=0)
+    ck_case.grid(row=1, column=1, sticky=tk.W, padx=2, pady=2)  # 设置是否忽略大小写的按钮
+
+    # 关闭窗口处理函数
+    def close_winsearch():
+        # 清除以前的标签，这是查询时做上的标记
+        simtext.tag_remove('tag_search', '1.0', tk.END)
+        # 销毁窗口
+        win_search.destroy()
+
+    # 通过属性WM_DELETE_WINDOW设置关闭窗口调用close_winsearch()函数
+    win_search.protocol('WM_DELETE_WINDOW', close_winsearch)
+    # 退出
+    return
+
+
+# 生成窗口菜单
+def create_menu():
+    # 生成窗口菜单
+    menu_obj = tk.Menu(win)
+    menu_file = tk.Menu(menu_obj, tearoff=0)
+    menu_obj.add_cascade(label='文件操作', menu=menu_file)
+    menu_file.add_command(label='新建', command=create_new, accelerator='Ctrl + n')
+    # 设置菜单的快捷键,绑定到control+n的事件上
+    menu_file.bind_all('<Control-n>', func=create_new)
+    menu_file.add_command(label='打开', command=open_file, accelerator='Ctrl + o')
+    menu_file.bind_all('<Control-o>', func=open_file)
+    menu_file.add_command(label='保存', command=save_file, accelerator='Ctrl + s')
+    menu_file.bind_all('<Control-s>', func=save_file)
+    menu_file.add_command(label='另存为', command=saveas, accelerator='Ctrl + Shift + s')
+    menu_edit = tk.Menu(menu_obj, tearoff=0)
+    menu_obj.add_cascade(label="编辑操作", menu=menu_edit)
+    menu_edit.add_command(label="复制", command=copy, accelerator="Ctrl + c")
+    menu_edit.add_command(label="剪切", command=cut, accelerator="Ctrl + x")
+    menu_edit.add_command(label="粘贴", command=paste, accelerator="Ctrl + v")
+    # 分隔线
+    menu_edit.add_separator()
+    menu_edit.add_command(label='撤销', command=undo, accelerator='Ctrl + z')
+    menu_edit.add_command(label='重做', command=redo, accelerator='Ctrl + y')
+    menu_edit.add_separator()
+    menu_edit.add_command(label="全选", accelerator="Ctrl + a", command=selectAll)
+    menu_edit.add_command(label="查找", command=search, accelerator="Ctrl + f")
+    menu_file.bind_all('<Control-f>', func=search)
+    win.config(menu=menu_obj)
+
+
+# 建立弹出菜单
+def create_popup_menu():
+    pop_menu = tk.Menu(simtext, tearoff=0)
+    for name, comm in zip(['复制', '剪切', '粘贴', '撤销', '恢复'], [copy, cut, paste, undo, redo]):
+        pop_menu.add_command(label=name, command=comm)
+    pop_menu.add_separator()
+    pop_menu.add_command(label='全选', command=selectAll)
+    # 将弹出菜单显示绑定到simtext的右键事件上
+    simtext.bind('<Button-3>', lambda event: pop_menu.tk_popup(event.x_root, event.y_root))
+
+
+# 主菜单main
+if __name__ == '__main__':
+    filename = ''
+    # 生成窗口
+    win = tk.Tk()
+    # 设置窗口的大小和位置
+    win.geometry('800x600+180+60')
+    # 设置窗口标题
+    win.title('简单的编辑器')
+    # 通过设置WM_DELETE_WINDOW属性，使得关闭窗口时调用close_win()函数，进行关闭前的提醒
+    win.protocol('WM_DELETE_WINDOW', close_win)
+    # 建立窗口菜单
+    create_menu()
+    # 在窗口左侧建立一个显示行号的栏目,由Label控件组成
+    text_line = tk.Text(win, width=3)
+    # 把显示行号的控件放在窗口左侧，纵向延伸
+    text_line.pack(side=tk.LEFT, fill=tk.Y)
+    # 生成一个Text控件，作为文本编辑的主体
+    simtext = tk.Text(win, wrap=tk.WORD, undo=True)
+    # 在窗口上放置Text控件,side=tk.LEFT设置控件放在窗口左侧，fill=tk.Y设置控件在垂直方向填充窗体
+    simtext.pack(expand=True, fill=tk.BOTH)
+    # 生成滚动条控件
+    scroll_obj = tk.Scrollbar(simtext)
+    # 在Text控件上放置滚动条控件,放在控件右侧，在垂直方向移动滚动条滑块
+    scroll_obj.pack(side=tk.RIGHT, fill=tk.Y)
+    # 配置滚动条属性，command=simtext.yview设置当用户操纵滚动条的时候，调用simtext的yview()方法,
+    # 也就是simtext中的内容会与滚动条联动，来显示simtext中的内容。
+    scroll_obj.config(command=simtext.yview)
+    # 配置simtext属性，yscrollcommand=scroll_obj.set与滚动绑定，形成联动
+    simtext.config(yscrollcommand=scroll_obj.set)
+    # 在simtext控件上绑定任意键事件，当按任意键时，调用set_linenumber()
+    simtext.bind_all('<Any-KeyPress>', set_linenumber)
+    # 设置弹出窗口，并绑定在右键事件上
+    create_popup_menu()
+    # 显示窗口
+    win.mainloop()
